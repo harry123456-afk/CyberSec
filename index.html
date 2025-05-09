@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Password Security Checker</title>
+  <style>
+    body { font-family: Arial; max-width: 600px; margin: 50px auto; padding: 20px; background: #f9f9f9; border-radius: 10px; }
+    input[type="password"] { width: 100%; padding: 10px; margin-top: 10px; }
+    button { margin-top: 15px; padding: 10px 20px; font-size: 16px; }
+    .result { margin-top: 20px; }
+    .good { color: green; }
+    .bad { color: red; }
+  </style>
+</head>
+<body>
+  <h2>🔐 Password Security Checker</h2>
+  <input type="password" id="password" placeholder="Enter your password">
+  <button onclick="checkPassword()">Check</button>
+
+  <div class="result" id="strengthResult"></div>
+  <div class="result" id="pwnedResult"></div>
+
+  <script>
+    function checkStrength(password) {
+      let messages = [];
+      if (password.length < 12) messages.push("At least 12 characters.");
+      if (!/[A-Z]/.test(password)) messages.push("Include uppercase letter.");
+      if (!/[a-z]/.test(password)) messages.push("Include lowercase letter.");
+      if (!/[0-9]/.test(password)) messages.push("Include number.");
+      if (!/[^\w\s]/.test(password)) messages.push("Include symbol (e.g. @, #, !).");
+
+      return messages.length === 0 
+        ? "✅ Strong password!"
+        : "❌ Weak password:<br>– " + messages.join("<br>– ");
+    }
+
+    async function checkPwned(password) {
+      const sha1 = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(password));
+      const hash = Array.from(new Uint8Array(sha1)).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+      const prefix = hash.slice(0, 5);
+      const suffix = hash.slice(5);
+
+      const res = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`);
+      const text = await res.text();
+
+      const found = text.split('\n').find(line => line.startsWith(suffix));
+      if (found) {
+        const count = found.split(':')[1];
+        return `❌ Found in ${count} data breaches!`;
+      } else {
+        return `✅ Not found in known breaches.`;
+      }
+    }
+
+    async function checkPassword() {
+      const pwd = document.getElementById("password").value;
+      document.getElementById("strengthResult").innerHTML = checkStrength(pwd);
+
+      const pwnedMsg = await checkPwned(pwd);
+      document.getElementById("pwnedResult").innerHTML = pwnedMsg;
+    }
+  </script>
+</body>
+</html>
